@@ -21,8 +21,22 @@ export function nowMsFor(adapter: object): number {
   return clock ? clock.now() : Date.now();
 }
 
-/** Attach a clock to one adapter instance. Called only from src/testing. */
+/**
+ * Attach a clock to one adapter instance. Called only from src/testing.
+ *
+ * This module ships in dist (unexported), so a file-URL import could still
+ * reach it. It refuses unless `process.env.NODE_ENV` is exactly "test", read
+ * live and never from a caller.
+ */
 export function installClock(adapter: object, clock: Clock): void {
+  const nodeEnv = typeof process === 'object' && process?.env ? process.env.NODE_ENV : undefined;
+  if (nodeEnv !== 'test') {
+    throw new Error(
+      `A test clock can only be installed when NODE_ENV is exactly "test" (it is ${
+        nodeEnv === undefined ? 'unset' : JSON.stringify(nodeEnv)
+      })`,
+    );
+  }
   if (clocks.has(adapter)) {
     throw new Error('A test clock is already installed on this adapter');
   }

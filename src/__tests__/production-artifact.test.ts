@@ -130,6 +130,36 @@ describe('production artifact excludes the test clock writer (RS5 pattern)', () 
   });
 });
 
+describe('shipped clock writer (RP2 defence in depth)', () => {
+  it('refuses to install a clock outside NODE_ENV=test, even through a file-URL import', () => {
+    const seamsUrl = JSON.stringify(new URL(`file://${join(productionBuild, 'seams.js')}`).href);
+    const script = [
+      `const seams = await import(${seamsUrl});`,
+      'const adapter = {};',
+      'try { seams.installClock(adapter, { now: () => 0 }); process.stdout.write(seams.nowMsFor(adapter) === 0 ? "installed" : "ignored"); }',
+      'catch (error) { process.stdout.write("refused: " + error.message); }',
+    ].join('\n');
+    const run = (nodeEnv: string | undefined) => {
+      const env: Record<string, string> = {};
+      for (const [key, value] of Object.entries(process.env)) {
+        if (key !== 'NODE_ENV' && value !== undefined) env[key] = value;
+      }
+      if (nodeEnv !== undefined) env.NODE_ENV = nodeEnv;
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+        cwd: work,
+        encoding: 'utf8',
+        env,
+      });
+      expect(result.stderr).toBe('');
+      return result.stdout;
+    };
+    for (const nodeEnv of ['production', undefined, '', 'development', 'TEST']) {
+      expect(run(nodeEnv)).toMatch(/^refused: A test clock can only be installed when NODE_ENV is exactly "test"/);
+    }
+    expect(run('test')).toBe('installed');
+  });
+});
+
 describe('testing entry load gate', () => {
   for (const [label, nodeEnv] of [
     ['unset', undefined],
