@@ -7,3 +7,4 @@ coverage/
 bazel-*
 result
 *.tsbuildinfo
+dist-testing/
