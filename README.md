@@ -24,8 +24,10 @@ npm install @tummycrypt/tinyland-auth
 ```
 
 `@tummycrypt/tinyland-auth-redis` accepts `@tummycrypt/tinyland-auth`
-`^0.2.0 || ^0.3.0`. The package test/build lane uses the latest 0.3 line so the
-Redis adapter stays compatible with the current auth contract.
+`^0.2.0 || ^0.3.0 || ^1.0.0`. The package test/build lane uses the latest 0.3
+line so the Redis adapter stays compatible with the current auth contract. The
+adapter imports only the `./storage` types, which 1.0.0 (RS6, TIN-5766) leaves
+unchanged; it typechecks and passes its tests against the 1.0.0 build.
 
 ## Quick Start
 

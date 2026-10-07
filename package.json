@@ -42,7 +42,7 @@
     "@upstash/redis": "^1.36.3"
   },
   "peerDependencies": {
-    "@tummycrypt/tinyland-auth": "^0.2.0 || ^0.3.0"
+    "@tummycrypt/tinyland-auth": "^0.2.0 || ^0.3.0 || ^1.0.0"
   },
   "devDependencies": {
     "@tummycrypt/tinyland-auth": "^0.3.3",
