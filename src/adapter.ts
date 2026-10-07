@@ -12,6 +12,7 @@
 import { Redis } from '@upstash/redis';
 import { randomUUID } from 'crypto';
 import { createKeys, type KeyGenerators } from './keys.js';
+import { nowMsFor } from './seams.js';
 import type { IStorageAdapter, AuditEventFilters } from '@tummycrypt/tinyland-auth/storage';
 import type {
   AdminUser,
@@ -22,16 +23,6 @@ import type {
   AdminInvitation,
   AuditEvent,
 } from '@tummycrypt/tinyland-auth/types';
-
-/**
- * Time source seam. Structurally matches `Clock` in
- * `@tummycrypt/tinyland-auth` (0.7.x); declared here so this adapter keeps its
- * current peer range.
- */
-export interface RedisStorageClock {
-  /** Milliseconds since the Unix epoch. */
-  now(): number;
-}
 
 export interface RedisStorageConfig {
   /** Existing Redis instance */
@@ -44,12 +35,6 @@ export interface RedisStorageConfig {
   prefix?: string;
   /** Session TTL in milliseconds (default: 7 days) */
   sessionMaxAge?: number;
-  /**
-   * Time source for the adapter's own timestamps and expiry checks. Defaults
-   * to the system clock. A harness injects one to drive session and invitation
-   * expiry without waiting. Audit event ids keep using the system clock.
-   */
-  clock?: RedisStorageClock;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -58,7 +43,6 @@ export class RedisStorageAdapter implements IStorageAdapter {
   private readonly redis: Redis;
   private readonly keys: KeyGenerators;
   private readonly sessionMaxAge: number;
-  private readonly clock?: RedisStorageClock;
 
   constructor(config: RedisStorageConfig) {
     if (config.redis) {
@@ -70,15 +54,17 @@ export class RedisStorageAdapter implements IStorageAdapter {
     }
     this.keys = createKeys(config.prefix ?? 'auth');
     this.sessionMaxAge = config.sessionMaxAge ?? SEVEN_DAYS_MS;
-    this.clock = config.clock;
   }
 
+  // System time. A test clock has no public option (RS5/RS6 pattern); it can
+  // be attached only through the gated src/testing build. Audit event ids
+  // keep using the system clock.
   private nowMs(): number {
-    return this.clock ? this.clock.now() : Date.now();
+    return nowMsFor(this);
   }
 
   private nowDate(): Date {
-    return this.clock ? new Date(this.clock.now()) : new Date();
+    return new Date(nowMsFor(this));
   }
 
   // ==========================================================================

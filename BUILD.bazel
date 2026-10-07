@@ -11,7 +11,11 @@ ts_project(
     name = "tinyland-auth-redis",
     srcs = glob(
         ["src/**/*.ts"],
-        exclude = ["src/__tests__/**"],
+        # RS5 pattern: the test harness never enters the production build.
+        exclude = [
+            "src/__tests__/**",
+            "src/testing/**",
+        ],
     ),
     declaration = True,
     declaration_map = True,
@@ -33,9 +37,12 @@ vitest_bin.vitest_test(
     name = "test",
     args = ["run"],
     data = glob(["src/**/*.ts"]) + [
+        ".gitignore",
+        "BUILD.bazel",
         ":node_modules",
         "package.json",
         "tsconfig.json",
+        "tsconfig.testing.json",
         "vitest.config.ts",
     ],
     log_level = "info",

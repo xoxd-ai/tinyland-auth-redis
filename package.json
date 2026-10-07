@@ -28,8 +28,9 @@
   ],
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit",
+    "build:testing": "tsc -p tsconfig.testing.json",
+    "clean": "rm -rf dist dist-testing",
+    "typecheck": "tsc --noEmit -p tsconfig.testing.json",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest watch",
