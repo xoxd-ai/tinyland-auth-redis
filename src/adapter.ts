@@ -23,6 +23,16 @@ import type {
   AuditEvent,
 } from '@tummycrypt/tinyland-auth/types';
 
+/**
+ * Time source seam. Structurally matches `Clock` in
+ * `@tummycrypt/tinyland-auth` (0.7.x); declared here so this adapter keeps its
+ * current peer range.
+ */
+export interface RedisStorageClock {
+  /** Milliseconds since the Unix epoch. */
+  now(): number;
+}
+
 export interface RedisStorageConfig {
   /** Existing Redis instance */
   redis?: Redis;
@@ -34,6 +44,12 @@ export interface RedisStorageConfig {
   prefix?: string;
   /** Session TTL in milliseconds (default: 7 days) */
   sessionMaxAge?: number;
+  /**
+   * Time source for the adapter's own timestamps and expiry checks. Defaults
+   * to the system clock. A harness injects one to drive session and invitation
+   * expiry without waiting. Audit event ids keep using the system clock.
+   */
+  clock?: RedisStorageClock;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -42,6 +58,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
   private readonly redis: Redis;
   private readonly keys: KeyGenerators;
   private readonly sessionMaxAge: number;
+  private readonly clock?: RedisStorageClock;
 
   constructor(config: RedisStorageConfig) {
     if (config.redis) {
@@ -53,6 +70,15 @@ export class RedisStorageAdapter implements IStorageAdapter {
     }
     this.keys = createKeys(config.prefix ?? 'auth');
     this.sessionMaxAge = config.sessionMaxAge ?? SEVEN_DAYS_MS;
+    this.clock = config.clock;
+  }
+
+  private nowMs(): number {
+    return this.clock ? this.clock.now() : Date.now();
+  }
+
+  private nowDate(): Date {
+    return this.clock ? new Date(this.clock.now()) : new Date();
   }
 
   // ==========================================================================
@@ -143,7 +169,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
       ...existing,
       ...updates,
       id, // Ensure ID is not changed
-      updatedAt: new Date().toISOString(),
+      updatedAt: this.nowDate().toISOString(),
     };
 
     pipeline.set(this.keys.user(id), updatedUser);
@@ -187,7 +213,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
     if (!session) return null;
 
     // Check expiration
-    if (new Date(session.expires) < new Date()) {
+    if (new Date(session.expires) < this.nowDate()) {
       await this.deleteSession(id);
       return null;
     }
@@ -196,7 +222,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
   }
 
   async getSessionsByUser(userId: string): Promise<Session[]> {
-    const now = Date.now();
+    const now = this.nowMs();
 
     // Get non-expired session IDs from the sorted set
     const sessionIds = await this.redis.zrange(
@@ -234,7 +260,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
     metadata?: SessionMetadata,
   ): Promise<Session> {
     const id = randomUUID();
-    const now = new Date();
+    const now = this.nowDate();
     const expires = new Date(now.getTime() + this.sessionMaxAge);
 
     const session: Session = {
@@ -329,7 +355,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
   }
 
   async cleanupExpiredSessions(): Promise<number> {
-    const now = Date.now();
+    const now = this.nowMs();
     let totalCleaned = 0;
 
     const userIds = await this.redis.smembers(this.keys.usersAll());
@@ -396,7 +422,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
     const invitation = await this.redis.get<AdminInvitation>(this.keys.invite(token));
     if (!invitation) return null;
 
-    if (new Date(invitation.expiresAt) < new Date()) {
+    if (new Date(invitation.expiresAt) < this.nowDate()) {
       return null;
     }
 
@@ -427,7 +453,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
     const tokens = await this.redis.smembers(this.keys.invitesPending());
     if (!tokens.length) return [];
 
-    const now = new Date();
+    const now = this.nowDate();
     const pipeline = this.redis.pipeline();
     for (const token of tokens) {
       pipeline.get(this.keys.invite(token as string));
@@ -500,7 +526,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
 
   async cleanupExpiredInvitations(): Promise<number> {
     const all = await this.getAllInvitations();
-    const now = new Date();
+    const now = this.nowDate();
     let count = 0;
 
     for (const invitation of all) {

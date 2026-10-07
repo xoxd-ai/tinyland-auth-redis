@@ -6,7 +6,7 @@
  */
 
 export { RedisStorageAdapter, createRedisStorageAdapter } from './adapter.js';
-export type { RedisStorageConfig } from './adapter.js';
+export type { RedisStorageConfig, RedisStorageClock } from './adapter.js';
 export { createKeys } from './keys.js';
 export type { KeyGenerators } from './keys.js';
 export { serialize, deserialize, toHashFields, fromHashFields } from './serialization.js';
