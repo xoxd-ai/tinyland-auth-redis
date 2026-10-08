@@ -10,7 +10,7 @@ const packageJson = require('../../package.json') as {
 
 describe('package auth compatibility contract', () => {
   it('accepts the tinyland-auth 0.3 and 1.0 lines while retaining 0.2 consumers', () => {
-    expect(packageJson.version).toBe('0.1.3');
+    expect(packageJson.version).toBe('0.2.0');
     expect(packageJson.peerDependencies?.['@tummycrypt/tinyland-auth']).toBe(
       '^0.2.0 || ^0.3.0 || ^1.0.0',
     );
